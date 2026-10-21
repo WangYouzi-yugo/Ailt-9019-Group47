@@ -1,0 +1,34 @@
+[
+  {
+    "id": "coffee_cup_general",
+    "text": "Take-away coffee cup at the HKU re Kiosk: a take-away coffee cup is recyclable, but the different components should be separated. The clean lid goes to plastic recycling, the cup sleeve goes to paper recycling, and the clean cup goes to Tetra Pak recycling. This guidance applies specifically to the HKU re Kiosk and may not hold at every recycling facility on campus unless confirmed by an official source.",
+    "answer": "Yes, but the different components should be separated. The clean lid should be placed in plastic recycling, the cup sleeve in paper recycling, and the clean cup in Tetra Pak recycling. Note: this applies specifically to the HKU re Kiosk.",
+    "source_name": "HKU Recycling 101 - Photo Guide (HKU Sustainability, Sustainability Unit, Estates Office)",
+    "url": "https://www.wastereduction.hku.hk/photo-guide",
+    "accessed_on": "2026-10-20"
+  },
+  {
+    "id": "coffee_cup_lid",
+    "text": "Coffee cup clean lid: plastic recycling at the HKU re Kiosk.",
+    "answer": "The clean lid of a take-away coffee cup should be placed in plastic recycling at the HKU re Kiosk.",
+    "source_name": "HKU Recycling 101 - Photo Guide (HKU Sustainability, Sustainability Unit, Estates Office)",
+    "url": "https://www.wastereduction.hku.hk/photo-guide",
+    "accessed_on": "2026-10-20"
+  },
+  {
+    "id": "coffee_cup_sleeve",
+    "text": "Coffee cup sleeve: paper recycling at the HKU re Kiosk.",
+    "answer": "The cup sleeve of a take-away coffee cup should be placed in paper recycling at the HKU re Kiosk.",
+    "source_name": "HKU Recycling 101 - Photo Guide (HKU Sustainability, Sustainability Unit, Estates Office)",
+    "url": "https://www.wastereduction.hku.hk/photo-guide",
+    "accessed_on": "2026-10-20"
+  },
+  {
+    "id": "coffee_cup_cup",
+    "text": "Coffee cup clean cup body: Tetra Pak recycling at the HKU re Kiosk.",
+    "answer": "The clean cup of a take-away coffee cup should be placed in Tetra Pak recycling at the HKU re Kiosk.",
+    "source_name": "HKU Recycling 101 - Photo Guide (HKU Sustainability, Sustainability Unit, Estates Office)",
+    "url": "https://www.wastereduction.hku.hk/photo-guide",
+    "accessed_on": "2026-10-20"
+  }
+]
