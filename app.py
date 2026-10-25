@@ -8,42 +8,65 @@ from collections import Counter
 HERE = os.path.dirname(os.path.abspath(__file__))
 CORPUS_PATH = os.path.join(HERE, "corpus.json")
 
+# Stems are used so that plural forms such as "batteries" are also caught.
 REFUSE_WORDS = [
-    "battery", "chemical", "lamp", "tube"
+    "batter", "chemical", "lamp", "tube", "paint", "medicine", "syringe"
 ]
 
-MIN_SCORE = 0.12
+# Generic words do not identify the item being asked about, so ignore them
+# during matching. This helps avoid matching an unrelated item just because
+# the question contains a word such as "recycle".
+STOPWORDS = {
+    "a", "an", "the", "i", "can", "do", "does", "how", "what", "which", "where",
+    "is", "are", "be", "to", "of", "in", "at", "on", "for", "it", "my", "this",
+    "into", "should", "go", "goes", "put", "throw", "dispose", "bin", "bins",
+    "recycle", "recycling", "recyclable", "recycled", "category", "belong",
+    "hku", "re", "kiosk", "campus", "way", "correct",
+}
+
+MIN_SCORE = 0.25
+
 
 def load_corpus():
     with open(CORPUS_PATH, encoding="utf-8") as f:
         return json.load(f)
 
+
 def tokenize(text):
-    return re.findall(r"[A-Za-z0-9]+|[\u4e00-\u9fff]", text.lower())
+    tokens = re.findall(r"[A-Za-z0-9]+|[\u4e00-\u9fff]", text.lower())
+    return [token for token in tokens if token not in STOPWORDS]
+
 
 def build_index(corpus):
     df = Counter()
     token_lists = []
     for doc in corpus:
-        tokens = tokenize(doc["text"])
+        # Match only on the item name: text before the first colon.
+        # The rule/answer text may mention "plastic" or "paper", but those
+        # words alone must not make an unrelated item match a coffee-cup rule.
+        item_name = doc["text"].split(":", 1)[0]
+        tokens = tokenize(item_name)
         token_lists.append(tokens)
-        for t in set(tokens):
-            df[t] += 1
+        for token in set(tokens):
+            df[token] += 1
     n = len(corpus)
-    idf = {t: math.log((n + 1) / (c + 1)) + 1 for t, c in df.items()}
+    idf = {token: math.log((n + 1) / (count + 1)) + 1 for token, count in df.items()}
     return token_lists, idf
+
 
 def tfidf_vector(tokens, idf):
     tf = Counter(tokens)
     vec = {}
-    for t, c in tf.items():
-        vec[t] = (1 + math.log(c)) * idf.get(t, 0.0)
-    norm = math.sqrt(sum(v * v for v in vec.values())) or 1.0
-    return {t: v / norm for t, v in vec.items()}
+    for token, count in tf.items():
+        vec[token] = (1 + math.log(count)) * idf.get(token, 0.0)
+    norm = math.sqrt(sum(value * value for value in vec.values())) or 1.0
+    return {token: value / norm for token, value in vec.items()}
+
 
 def cosine_similarity(vec_a, vec_b):
     common = set(vec_a) & set(vec_b)
-    return sum(vec_a[t] * vec_b[t] for t in common)
+    return sum(vec_a[token] * vec_b[token] for token in common)
+
 
 def retrieve(query, corpus, k=2):
     token_lists, idf = build_index(corpus)
@@ -54,24 +77,30 @@ def retrieve(query, corpus, k=2):
         score = cosine_similarity(query_vec, doc_vec)
         scored.append((score, i))
     scored.sort(reverse=True)
-    return [(corpus[idx], score) for score, idx in scored[:k]]
+    return [(corpus[index], score) for score, index in scored[:k]]
+
 
 def should_refuse(query, best_score):
-    if any(w in query.lower() for w in REFUSE_WORDS):
+    if any(word in query.lower() for word in REFUSE_WORDS):
         return True
     return best_score < MIN_SCORE
+
 
 def format_answer(query):
     corpus = load_corpus()
     results = retrieve(query, corpus, k=2)
     if not results:
-        return ("[Refusal] No sufficient information is currently available to answer this question.\n"
-                "Please refer to the official recycling guidelines from the Hong Kong EPD or the HKU Sustainability Office.")
+        return (
+            "[Refusal] No sufficient information is currently available to answer this question.\n"
+            "Please refer to the official recycling guidelines from the Hong Kong EPD or the HKU Sustainability Office."
+        )
     doc, score = results[0]
     if should_refuse(query, score):
-        return ("[Refusal] Recycling Rules Helper No reliable official basis has been found."
-                "To avoid misinformation, I cannot provide a direct answer.\n"
-                "Please refer to the official channels: HKU Sustainability Office / Hong Kong EPD Recycling Guidelines.")
+        return (
+            "[Refusal] Recycling Rules Helper: No reliable official basis has been found. "
+            "To avoid misinformation, I cannot provide a direct answer.\n"
+            "Please refer to the official channels: HKU Sustainability Office / Hong Kong EPD Recycling Guidelines."
+        )
     lines = [
         f"Answer: {doc['answer']}",
         "",
@@ -80,19 +109,22 @@ def format_answer(query):
     ]
     return "\n".join(lines)
 
+
 DEMO_QUERIES = [
-    " plastic bottle how to recycle",
+    "plastic bottle how to recycle",
     "can batteries be put in recycling bins",
     "what category does a banana peel belong to for recycling",
 ]
 
+
 def run_demo():
-    for q in DEMO_QUERIES:
+    for query in DEMO_QUERIES:
         print("=" * 60)
-        print(f"INPUT : {q}")
+        print(f"INPUT : {query}")
         print("-" * 60)
-        print(format_answer(q))
+        print(format_answer(query))
     print("=" * 60)
+
 
 def main():
     args = sys.argv[1:]
@@ -100,12 +132,13 @@ def main():
         run_demo()
         return
     if "--ask" in args:
-        idx = args.index("--ask") + 1
-        if idx < len(args):
-            print(format_answer(args[idx]))
+        index = args.index("--ask") + 1
+        if index < len(args):
+            print(format_answer(args[index]))
         else:
-            print("Usage: python app.py --ask \"How to recycle a plastic bottle?\"")
+            print('Usage: python app.py --ask "How to recycle a plastic bottle?"')
         return
+
     print("Recycling Rules Helper — Enter an item name to query its recycling rules (type 'exit' to quit)")
     while True:
         try:
@@ -115,6 +148,7 @@ def main():
         if query.lower() in ("exit", "quit", ""):
             break
         print(format_answer(query))
+
 
 if __name__ == "__main__":
     main()
