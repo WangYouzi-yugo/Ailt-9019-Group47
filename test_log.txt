@@ -1,0 +1,45 @@
+HKU Recycling Assistant - evaluation run 2026-11-16
+============================================================
+Test 1: input=[How do I recycle a paper cup?] expected=ANSWERED got=ANSWERED -> PASS
+Test 2: input=[Where can I recycle office paper?] expected=ANSWERED got=ANSWERED -> PASS
+Test 3: input=[Recycle a plastic bottle] expected=ANSWERED got=ANSWERED -> PASS
+Test 4: input=[What about an aluminium can?] expected=ANSWERED got=ANSWERED -> PASS
+Test 5: input=[recycle a glass bottle] expected=ANSWERED got=ANSWERED -> PASS
+Test 6: input=[dispose a cardboard box] expected=ANSWERED got=ANSWERED -> PASS
+Test 7: input=[how to recycle a beverage carton] expected=ANSWERED got=ANSWERED -> PASS
+Test 8: input=[recycle a mobile phone] expected=ANSWERED got=ANSWERED -> PASS
+Test 9: input=[recycle my laptop] expected=ANSWERED got=ANSWERED -> PASS
+Test 10: input=[recycle used clothes] expected=ANSWERED got=ANSWERED -> PASS
+Test 11: input=[put food waste in the bin] expected=ANSWERED got=ANSWERED -> PASS
+Test 12: input=[recycle a tin can] expected=ANSWERED got=ANSWERED -> PASS
+Test 13: input=[recycle a keyboard] expected=ANSWERED got=ANSWERED -> PASS
+Test 14: input=[how do I recycle a magazine] expected=ANSWERED got=ANSWERED -> PASS
+Test 15: input=[recycle a metal bottle] expected=ANSWERED got=ANSWERED -> PASS
+Test 16: input=[recycle a yoghurt cup] expected=ANSWERED got=ANSWERED -> PASS
+Test 17: input=[recycle a charger cable] expected=ANSWERED got=ANSWERED -> PASS
+Test 18: input=[dispose of a ceramic mug] expected=ANSWERED got=ANSWERED -> PASS
+Test 19: input=[throw away a face mask] expected=ANSWERED got=ANSWERED -> PASS
+Test 20: input=[recycle a glass jar] expected=ANSWERED got=ANSWERED -> PASS
+Test 21: input=[I have a greasy pizza box, can I recycle it?] expected=AMBIGUOUS got=AMBIGUOUS -> PASS
+Test 22: input=[partly dirty plastic container] expected=AMBIGUOUS got=AMBIGUOUS -> PASS
+Test 23: input=[not sure what material this broken thing is] expected=AMBIGUOUS got=AMBIGUOUS -> PASS
+Test 24: input=[some kind of mixed packaging] expected=AMBIGUOUS got=AMBIGUOUS -> PASS
+Test 25: input=[contaminated paper with oil] expected=AMBIGUOUS got=AMBIGUOUS -> PASS
+Test 26: input=[a torn and stained cardboard] expected=AMBIGUOUS got=AMBIGUOUS -> PASS
+Test 27: input=[How do I recycle a lithium battery?] expected=REFUSED got=REFUSED -> PASS
+Test 28: input=[dispose of a car battery] expected=REFUSED got=REFUSED -> PASS
+Test 29: input=[recycle a power bank] expected=REFUSED got=REFUSED -> PASS
+Test 30: input=[throw away broken glass shards] expected=REFUSED got=REFUSED -> PASS
+Test 31: input=[recycle a gas canister] expected=REFUSED got=REFUSED -> PASS
+Test 32: input=[dispose of paint thinner] expected=REFUSED got=REFUSED -> PASS
+Test 33: input=[recycle a medical syringe] expected=REFUSED got=REFUSED -> PASS
+Test 34: input=[throw away a dead animal] expected=REFUSED got=REFUSED -> PASS
+Test 35: input=[recycle asbestos scraps] expected=REFUSED got=REFUSED -> PASS
+Test 36: input=[recycle a bicycle] expected=UNSUPPORTED got=UNSUPPORTED -> PASS
+Test 37: input=[recycle a mattress] expected=UNSUPPORTED got=UNSUPPORTED -> PASS
+Test 38: input=[recycle a piano] expected=UNSUPPORTED got=UNSUPPORTED -> PASS
+============================================================
+Overall accuracy: 38/38 = 100.0%
+  bucket normal: 20/20
+  bucket ambiguous: 6/6
+  bucket unsupported: 12/12

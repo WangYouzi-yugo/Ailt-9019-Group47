@@ -1,154 +1,231 @@
+"""
+AILT9019 Group 47 - HKU Waste Recycling Assistant (CLI prototype)
+
+Retrieval-based Q&A over a curated corpus of HKU recycling items.
+- Answers always cite the retrieved record (category / preparation / facility / source).
+- Refuses hazardous / unsupported items (no hallucination).
+- Optionally drafts the final answer with an LLM; falls back to the retrieved record
+  when no API key is configured, so the prototype runs offline.
+
+Run:
+    python app.py                 # interactive CLI
+    python app.py "paper cup"     # single query
+    python app.py --eval          # run eval_cases.json, print accuracy, write test_log.txt
+"""
+
 import json
-import math
 import os
 import re
 import sys
-from collections import Counter
+from datetime import date
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-CORPUS_PATH = os.path.join(HERE, "corpus.json")
+CORPUS_FILE = os.environ.get("CORPUS_FILE", "corpus.json")
+EVAL_FILE = os.environ.get("EVAL_FILE", "eval_cases.json")
+LOG_FILE = os.environ.get("LOG_FILE", "test_log.txt")
 
-# Stems are used so that plural forms such as "batteries" are also caught.
-REFUSE_WORDS = [
-    "batter", "chemical", "lamp", "tube", "paint", "medicine", "syringe"
+# Items that must NEVER receive a recycling answer -> safety refusal.
+UNSAFE_KEYWORDS = [
+    "lithium battery", "car battery", "battery", "batteries", "power bank", "powerbank",
+    "broken glass", "glass shard", "shattered glass", "needle", "syringe", "sharps",
+    "chemical", "paint", "solvent", "asbestos", "medical waste", "clinical waste",
+    "gas canister", "gas cylinder", "fire extinguisher", "ammunition",
+    "dead animal", "biohazard",
 ]
 
-# Generic words do not identify the item being asked about, so ignore them
-# during matching. This helps avoid matching an unrelated item just because
-# the question contains a word such as "recycle".
-STOPWORDS = {
-    "a", "an", "the", "i", "can", "do", "does", "how", "what", "which", "where",
-    "is", "are", "be", "to", "of", "in", "at", "on", "for", "it", "my", "this",
-    "into", "should", "go", "goes", "put", "throw", "dispose", "bin", "bins",
-    "recycle", "recycling", "recyclable", "recycled", "category", "belong",
-    "hku", "re", "kiosk", "campus", "way", "correct",
-}
-
-MIN_SCORE = 0.25
+# Words that make a query ambiguous -> ask for clarification instead of guessing.
+AMBIGUOUS_HINTS = [
+    "dirty", "contaminated", "greasy", "stained", "broken", "torn", "mixed",
+    "partly", "not sure", "unsure", "some kind", "kind of", "maybe",
+]
 
 
-def load_corpus():
-    with open(CORPUS_PATH, encoding="utf-8") as f:
-        return json.load(f)
+# ---------------------------------------------------------------- data
+def load_corpus(filepath=CORPUS_FILE):
+    with open(filepath, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    if not isinstance(data, list) or not data:
+        raise ValueError("corpus must be a non-empty JSON list of items.")
+    for i, item in enumerate(data):
+        for field in ("name", "category", "preparation", "facility", "source"):
+            if field not in item:
+                raise ValueError("corpus item #%s (%s) missing field %s." %
+                                 (i, item.get("name", "?"), field))
+    return data
 
 
-def tokenize(text):
-    tokens = re.findall(r"[A-Za-z0-9]+|[\u4e00-\u9fff]", text.lower())
-    return [token for token in tokens if token not in STOPWORDS]
+# ---------------------------------------------------------------- helpers
+def _norm(text):
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
 
 
-def build_index(corpus):
-    df = Counter()
-    token_lists = []
-    for doc in corpus:
-        # Match only on the item name: text before the first colon.
-        # The rule/answer text may mention "plastic" or "paper", but those
-        # words alone must not make an unrelated item match a coffee-cup rule.
-        item_name = doc["text"].split(":", 1)[0]
-        tokens = tokenize(item_name)
-        token_lists.append(tokens)
-        for token in set(tokens):
-            df[token] += 1
-    n = len(corpus)
-    idf = {token: math.log((n + 1) / (count + 1)) + 1 for token, count in df.items()}
-    return token_lists, idf
+def _tokens(text):
+    return set(_norm(text).split())
 
 
-def tfidf_vector(tokens, idf):
-    tf = Counter(tokens)
-    vec = {}
-    for token, count in tf.items():
-        vec[token] = (1 + math.log(count)) * idf.get(token, 0.0)
-    norm = math.sqrt(sum(value * value for value in vec.values())) or 1.0
-    return {token: value / norm for token, value in vec.items()}
+def is_unsafe(query):
+    q = _norm(query)
+    return any(_norm(k) in q for k in UNSAFE_KEYWORDS)
 
 
-def cosine_similarity(vec_a, vec_b):
-    common = set(vec_a) & set(vec_b)
-    return sum(vec_a[token] * vec_b[token] for token in common)
+def is_ambiguous(query):
+    q = _norm(query)
+    return any(h in q for h in AMBIGUOUS_HINTS)
 
 
-def retrieve(query, corpus, k=2):
-    token_lists, idf = build_index(corpus)
-    query_vec = tfidf_vector(tokenize(query), idf)
-    scored = []
-    for i, doc in enumerate(corpus):
-        doc_vec = tfidf_vector(token_lists[i], idf)
-        score = cosine_similarity(query_vec, doc_vec)
-        scored.append((score, i))
-    scored.sort(reverse=True)
-    return [(corpus[index], score) for score, index in scored[:k]]
+# ---------------------------------------------------------------- retrieval
+def retrieve_answer(query, corpus):
+    """Keyword/alias scoring over the corpus. Returns (best_item, score) or (None, 0)."""
+    q_tokens = _tokens(query)
+    best, best_score = None, 0
+    for item in corpus:
+        name_tokens = _tokens(item["name"])
+        alias_tokens = set()
+        for alias in item.get("aliases", []):
+            alias_tokens |= _tokens(alias)
+        cat_tokens = _tokens(item["category"])
+
+        score = 0
+        if _norm(item["name"]) and _norm(item["name"]) in _norm(query):
+            score += 10
+        if _norm(query) and _norm(query) in _norm(item["name"]):
+            score += 8
+        score += 6 * len(alias_tokens & q_tokens)
+        score += 3 * len(name_tokens & q_tokens)
+        score += 1 * len(cat_tokens & q_tokens)
+
+        if score > best_score:
+            best, best_score = item, score
+    if best_score >= 3:
+        return best, best_score
+    return None, 0
 
 
-def should_refuse(query, best_score):
-    if any(word in query.lower() for word in REFUSE_WORDS):
-        return True
-    return best_score < MIN_SCORE
+# ---------------------------------------------------------------- answer
+def format_record(item):
+    return (
+        "Item: %s\n"
+        "Category: %s\n"
+        "Preparation: %s\n"
+        "Facility: %s\n"
+        "Source: %s (accessed %s)" % (
+            item["name"], item["category"], item["preparation"],
+            item["facility"], item["source"], item.get("access_date", "n/a"))
+    )
 
 
-def format_answer(query):
+def draft_with_llm(query, item):
+    """Optional LLM drafting step. Returns text, or None if unavailable (caller falls back)."""
+    api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("API_KEY")
+    if not api_key:
+        return None
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+        system = (
+            "You are a HKU waste recycling assistant. Use ONLY the retrieved record to answer. "
+            "Never invent facilities or preparation steps. Always restate preparation and facility."
+        )
+        user = "Question: %s\nRetrieved record:\n%s" % (query, format_record(item))
+        resp = client.chat.completions.create(
+            model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+            messages=[{"role": "system", "content": system},
+                      {"role": "user", "content": user}],
+            temperature=0.2, max_tokens=300)
+        return resp.choices[0].message.content.strip()
+    except Exception as exc:
+        print("[info] LLM drafting unavailable (%s); using retrieved record." %
+              exc.__class__.__name__, file=sys.stderr)
+        return None
+
+
+def process_query(query, corpus, use_llm=True):
+    q = (query or "").strip()
+    if not q:
+        return "empty", "EMPTY", "Please enter an item to recycle."
+
+    if is_unsafe(q):
+        return "refused", "REFUSED", (
+            "Sorry, I cannot help with hazardous or unsupported items. "
+            "Please do NOT put them in recycling bins. Contact HKU Facilities Office / "
+            "the relevant special collection point for safe disposal.")
+
+    if is_ambiguous(q):
+        return "ambiguous", "AMBIGUOUS", (
+            "Your item is partially described or contaminated, so I cannot give a confident answer. "
+            "Could you tell me the main material (paper / plastic / metal / glass / e-waste) "
+            "and whether it is clean and dry? In general, recyclables must be clean and dry; "
+            "heavily contaminated items go to general waste.")
+
+    item, score = retrieve_answer(q, corpus)
+    if item is None:
+        return "unsupported", "UNSUPPORTED", (
+            "Sorry, this item is not in my verified HKU corpus. "
+            "Please check the official HKU waste management / Facilities Office page before disposing of it.")
+
+    if use_llm:
+        drafted = draft_with_llm(q, item)
+        if drafted:
+            return "answer", "ANSWERED", drafted + "\n\n" + format_record(item)
+    return "answer", "ANSWERED", format_record(item)
+
+
+# ---------------------------------------------------------------- evaluation
+def run_evaluation(corpus, eval_file=EVAL_FILE, log_file=LOG_FILE):
+    with open(eval_file, "r", encoding="utf-8") as f:
+        cases = json.load(f)
+    lines = ["HKU Recycling Assistant - evaluation run " + date.today().isoformat(), "=" * 60]
+    correct = 0
+    buckets = {}
+    for idx, case in enumerate(cases, 1):
+        _, code, _ = process_query(case["query"], corpus, use_llm=False)
+        ok = code == case["expected"]
+        correct += ok
+        b = buckets.setdefault(case.get("bucket", "normal"), [0, 0])
+        b[1] += 1
+        b[0] += ok
+        lines.append("Test %d: input=[%s] expected=%s got=%s -> %s" %
+                     (idx, case["query"], case["expected"], code, "PASS" if ok else "FAIL"))
+    acc = correct / len(cases) * 100 if cases else 0
+    lines.append("=" * 60)
+    lines.append("Overall accuracy: %d/%d = %.1f%%" % (correct, len(cases), acc))
+    for name, (c, t) in buckets.items():
+        lines.append("  bucket %s: %d/%d" % (name, c, t))
+    text = "\n".join(lines)
+    with open(log_file, "w", encoding="utf-8") as f:
+        f.write(text + "\n")
+    print(text)
+    return acc
+
+
+# ---------------------------------------------------------------- CLI
+def main(argv):
     corpus = load_corpus()
-    results = retrieve(query, corpus, k=2)
-    if not results:
-        return (
-            "[Refusal] No sufficient information is currently available to answer this question.\n"
-            "Please refer to the official recycling guidelines from the Hong Kong EPD or the HKU Sustainability Office."
-        )
-    doc, score = results[0]
-    if should_refuse(query, score):
-        return (
-            "[Refusal] Recycling Rules Helper: No reliable official basis has been found. "
-            "To avoid misinformation, I cannot provide a direct answer.\n"
-            "Please refer to the official channels: HKU Sustainability Office / Hong Kong EPD Recycling Guidelines."
-        )
-    lines = [
-        f"Answer: {doc['answer']}",
-        "",
-        f"Original Reference: {doc['text']}",
-        f"Source: {doc['source_name']}  Link: {doc['url']}  Accessed on: {doc['accessed_on']}",
-    ]
-    return "\n".join(lines)
-
-
-DEMO_QUERIES = [
-    "plastic bottle how to recycle",
-    "can batteries be put in recycling bins",
-    "what category does a banana peel belong to for recycling",
-]
-
-
-def run_demo():
-    for query in DEMO_QUERIES:
-        print("=" * 60)
-        print(f"INPUT : {query}")
-        print("-" * 60)
-        print(format_answer(query))
-    print("=" * 60)
-
-
-def main():
-    args = sys.argv[1:]
-    if "--demo" in args:
-        run_demo()
+    if "--eval" in argv:
+        run_evaluation(corpus)
         return
-    if "--ask" in args:
-        index = args.index("--ask") + 1
-        if index < len(args):
-            print(format_answer(args[index]))
-        else:
-            print('Usage: python app.py --ask "How to recycle a plastic bottle?"')
+    positional = [a for a in argv if not a.startswith("-")]
+    if positional:
+        _, code, resp = process_query(" ".join(positional), corpus)
+        print("[%s]\n%s" % (code, resp))
         return
-
-    print("Recycling Rules Helper — Enter an item name to query its recycling rules (type 'exit' to quit)")
+    print("=== HKU Waste Recycling Assistant (CLI) ===")
+    print("Loaded %d verified items. Type 'quit' to exit.\n" % len(corpus))
     while True:
         try:
-            query = input("> ").strip()
-        except EOFError:
+            query = input("Query> ").strip()
+        except (EOFError, KeyboardInterrupt):
             break
-        if query.lower() in ("exit", "quit", ""):
+        if query.lower() in {"quit", "exit", "q"}:
             break
-        print(format_answer(query))
+        if not query:
+            continue
+        _, code, resp = process_query(query, corpus)
+        print("\n[%s]\n%s\n" % (code, resp))
+    print("Goodbye!")
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
