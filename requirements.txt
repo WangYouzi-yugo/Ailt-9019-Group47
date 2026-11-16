@@ -1,4 +1,3 @@
-# Core prototype runs with the Python standard library only.
-# Optional: enable LLM drafting by installing openai and setting OPENAI_API_KEY.
-openai>=1.0.0
-pytest>=7.0.0
+openai
+python-dotenv
+pytest
