@@ -72,12 +72,20 @@ def _kw(q: str, words) -> bool:
     return any(w in low for w in words)
 
 
+
+def _format_sources(ids: List[str]) -> str:
+    lines = []
+    for sid in ids:
+        s = SOURCES[sid]
+        lines.append(f"- {sid} {s['title']}: {s['url']}")
+    return "\n".join(lines)
+
 def classify(question: str) -> Tuple[Bucket, str, List[str]]:
     """Return (bucket, answer_text, source_ids)."""
 
     q = question.lower()
 
-    # --- CLARIFY: battery (must distinguish rechargeable vs non-rechargeable) ---
+    # --- CLARIFY: battery ---
     if _kw(q, ["battery", "batteries", "充电宝", "power bank"]):
         return (
             CLARIFY,
@@ -121,25 +129,78 @@ def classify(question: str) -> Tuple[Bucket, str, List[str]]:
             [],
         )
 
-    # --- ANSWERED: items covered by the sources ---
-    # Paper
-    if _kw(q, ["paper", "newspaper", "magazine", "cardboard", "pizza box"]):
-        extra = ""
-        if "pizza" in q:
-            extra = " Only if clean and grease-free."
+    # ================================================================
+    #  ANSWERED — specific items first, general items last
+    # ================================================================
+
+    # Location query
+    if _kw(q, ["where", "location", "address", "find", "open", "hour"]):
         return (
             ANSWERED,
-            f"Paper goes into the paper slot of the re Kiosk.{extra}",
-            ["S1"],
+            "The re Kiosk is at Run Run Shaw Podium, next to Subway and opposite "
+            "Runme Shaw Building, Main Campus.  It is open 24 hours.",
+            ["S3"],
         )
 
-    # Coffee / paper cup (must mention separation + rinsing)
+    # Coffee / paper cup (separation + rinsing)
     if _kw(q, ["coffee cup", "paper cup", "disposable cup", "takeaway cup"]):
         return (
             ANSWERED,
             "Separate the lid (plastic), sleeve (paper), and cup body (Tetra Pak), "
             "and rinse the cup before recycling.",
             ["S2", "S4"],
+        )
+
+    # Food-contaminated paper / oily cup
+    if _kw(q, ["oily", "greasy", "contaminated", "food stain"]) and _kw(
+        q, ["paper", "cup", "bag", "container", "box"]
+    ):
+        return (
+            ANSWERED,
+            "Paper items contaminated with oil or food cannot be recycled via the "
+            "re Kiosk.",
+            ["S4"],
+        )
+
+    # Pizza box (clean)
+    if _kw(q, ["pizza box"]):
+        return (
+            ANSWERED,
+            "A clean pizza box goes into the paper slot of the re Kiosk. "
+            "Greasy / food-stained portions should be discarded.",
+            ["S1", "S2"],
+        )
+
+    # Baking / parchment paper (explicitly NOT accepted)
+    if _kw(q, ["baking paper", "parchment", "greaseproof"]):
+        return (
+            ANSWERED,
+            "Baking / parchment paper is not accepted at the re Kiosk.",
+            ["S2"],
+        )
+
+    # Styrofoam
+    if _kw(q, ["styrofoam", "foam box", "foam container"]):
+        return (
+            ANSWERED,
+            "Styrofoam is accepted at the re Kiosk if rinsed clean.",
+            ["S1", "S2"],
+        )
+
+    # Instant noodle bowl
+    if _kw(q, ["noodle bowl", "instant noodle"]):
+        return (
+            ANSWERED,
+            "The noodle bowl goes to plastic; the lid is not accepted.",
+            ["S1", "S2"],
+        )
+
+    # Contact lens case
+    if _kw(q, ["contact lens", "lens case"]):
+        return (
+            ANSWERED,
+            "The lens-case tray is plastic; the foil lid is not accepted.",
+            ["S1", "S2"],
         )
 
     # Tetra Pak
@@ -159,82 +220,47 @@ def classify(question: str) -> Tuple[Bucket, str, List[str]]:
         )
 
     # Glass
-    if _kw(q, ["glass", "bottle"]):
+    if _kw(q, ["glass", "bottle", "jar"]):
         return (
             ANSWERED,
-            "Glass bottles are accepted at the re Kiosk.",
+            "Glass bottles / jars are accepted at the re Kiosk.",
             ["S1"],
         )
 
-    # Plastic
-    if _kw(q, ["plastic", "bottle", "container", "styrofoam", "foam",
-                "noodle bowl", "contact lens", "lens case"]):
-        extra = ""
-        if "styrofoam" in q or "foam" in q:
-            extra = " Rinse clean first."
-        if "noodle" in q:
-            extra = " The bowl goes to plastic; the lid is not accepted."
-        if "contact" in q and "lens" in q:
-            extra = " The tray is plastic; the foil lid is not accepted."
+    # Plastic bottle
+    if _kw(q, ["plastic bottle", "pet bottle", "drink bottle"]):
         return (
             ANSWERED,
-            f"Plastic items go into the plastic slot of the re Kiosk.{extra}",
-            ["S1", "S2"],
-        )
-
-    # Location query
-    if _kw(q, ["where", "location", "address", "find", "open", "hour"]):
-        return (
-            ANSWERED,
-            "The re Kiosk is at Run Run Shaw Podium, next to Subway and opposite "
-            "Runme Shaw Building, Main Campus.  It is open 24 hours.",
-            ["S3"],
-        )
-
-    # Baking / parchment paper (explicitly not accepted)
-    if _kw(q, ["baking paper", "parchment", "greaseproof"]):
-        return (
-            ANSWERED,
-            "Baking / parchment paper is not accepted at the re Kiosk.",
-            ["S2"],
-        )
-
-    # Food-contaminated paper
-    if _kw(q, ["oily", "greasy", "contaminated", "food stain"]) and _kw(
-        q, ["paper", "cup", "bag", "container", "box"]
-    ):
-        return (
-            ANSWERED,
-            "Paper items contaminated with oil or food cannot be recycled via the "
-            "re Kiosk.",
-            ["S4"],
-        )
-
-    # General "what can I recycle"
-    if _kw(q, ["what can", "what is accepted", "recyclable", "recycling rule"]):
-        return (
-            ANSWERED,
-            "The re Kiosk accepts paper, Tetra Pak cartons, metal cans, glass "
-            "bottles, plastic bottles/containers, and rechargeable batteries.",
+            "Plastic bottles are accepted at the re Kiosk.",
             ["S1"],
         )
 
-    # Fallback: not enough information
+    # Newspaper / clean paper
+    if _kw(q, ["newspaper", "newspaper", "clean paper", "office paper"]):
+        return (
+            ANSWERED,
+            "Newspapers and clean paper go into the paper slot of the re Kiosk.",
+            ["S1"],
+        )
+
+    # re Kiosk accepted items (general)
+    if _kw(q, ["accept", "accepted", "what item", "what can", "list"]):
+        return (
+            ANSWERED,
+            "The re Kiosk accepts clean paper, Tetra Pak cartons, plastic bottles, "
+            "metal cans, glass bottles / jars, and rinsed styrofoam.",
+            ["S1"],
+        )
+
+    # ================================================================
+    #  FALLBACK
+    # ================================================================
     return (
         INSUFFICIENT,
         "The provided sources do not contain enough information to answer this "
-        "question confidently.",
+        "question.",
         [],
     )
-
-
-def _format_sources(ids: List[str]) -> str:
-    lines = []
-    for sid in ids:
-        s = SOURCES[sid]
-        lines.append(f"- {sid} {s['title']}: {s['url']}")
-    return "\n".join(lines)
-
 
 def draft_local(bucket: Bucket, answer: str, source_ids: List[str]) -> str:
     """Plain-text answer without calling any API."""
