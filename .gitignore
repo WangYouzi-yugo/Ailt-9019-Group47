@@ -1,15 +1,31 @@
+# ── Secrets ──
 .env
+
+# ── Python runtime ──
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
+
+# ── Virtual environment ──
 venv/
-env/
 .venv/
+env/
+
+# ── IDE / editor ──
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+
+# ── Testing / coverage ──
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# ── OS clutter ──
 .DS_Store
-test_log.txt
+Thumbs.db
