@@ -1,0 +1,9 @@
+﻿HKU Recycling Rules Helper - API connectivity check
+Date: 2026-11-19 (Asia/Shanghai)
+Environment: Windows 11, Python 3.12.14, DeepSeek API
+Command: python check_api.py
+
+API OK
+model: deepseek-chat
+endpoint: https://api.deepseek.com/v1
+reply: API_OK

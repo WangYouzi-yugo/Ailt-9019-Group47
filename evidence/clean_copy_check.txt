@@ -1,0 +1,16 @@
+HKU Recycling Rules Helper - clean-copy verification (no .env, offline fallback)
+Date: 2026-11-19 (Asia/Shanghai)
+Environment: Windows 11, Python 3.12.14, clean copy of the repository files without .git/.venv/.env
+
+1) python app.py --eval
+   -> [ALL] 15/15 = 100.0%
+
+2) python -m pytest -q
+   -> 18 passed
+
+3) python app.py "Can I recycle a takeaway coffee cup at the HKU re Kiosk?"
+   -> [ANSWERED]
+   -> Yes, but the components should be separated. The clean lid should be placed in plastic recycling, the cup sleeve in paper recycling, and the clean cup in Tetra Pak recycling.
+   -> Sources: S2 Photo Guide | re Campaign: https://www.wastereduction.hku.hk/photo-guide
+
+Note: this run intentionally has no .env and no API key, so it exercises the local fallback path only.

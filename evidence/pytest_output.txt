@@ -1,0 +1,7 @@
+﻿HKU Recycling Rules Helper - pytest transcript
+Date: 2026-11-19 (Asia/Shanghai)
+Environment: Windows 11, Python 3.12.14, pytest 9.2.0
+Command: python -m pytest -q
+
+..................                                                       [100%]
+18 passed in 1.60s
