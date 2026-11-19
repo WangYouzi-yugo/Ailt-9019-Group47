@@ -177,7 +177,7 @@ print(f"[API] used {model} at {base_url}")   # remove before committing
 
 ### 4.5 Alternative: three blank lines in `app.py`
 
-`app.py` also contains an explicit local-only configuration block (around lines 300–302):
+`app.py` also contains an explicit local-only configuration block (around lines 301–303):
 
 ```python
 API_KEY = ""      # <-- paste your key here
