@@ -281,7 +281,7 @@ def draft_local(bucket: Bucket, answer: str, source_ids: List[str]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Optional LLM polish (OpenAI-compatible endpoint, e.g. DeepSeek)
+# Optional LLM polish (OpenAI-compatible endpoint, e.g. Alibaba Cloud Qwen)
 # ---------------------------------------------------------------------------
 
 def draft_with_llm(bucket: Bucket, answer: str, source_ids: List[str],
@@ -293,8 +293,8 @@ def draft_with_llm(bucket: Bucket, answer: str, source_ids: List[str],
         load_dotenv()
 
         api_key = os.environ.get("OPENAI_API_KEY", "")
-        base_url = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com/v1")
-        model = os.environ.get("OPENAI_MODEL", "deepseek-chat")
+        base_url = os.environ.get("OPENAI_BASE_URL", "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
+        model = os.environ.get("OPENAI_MODEL", "qwen3.8-flash")
 
         if not api_key or not api_key.startswith("sk-"):
             raise RuntimeError("No valid OPENAI_API_KEY")
