@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recycling Rules Helper | AILT9019 Group 47</title>
+<meta name="description" content="An LLM-powered campus recycling assistant grounded in official HKU waste-reduction sources. AILT9019 final project.">
+<style>
+  :root{
+    --green:#1f7a4d; --green-dark:#155e3a; --green-light:#e8f3ec;
+    --leaf:#3aa76d; --ink:#1c2420; --muted:#5c6b63; --line:#dfe7e2;
+    --amber:#b8791b; --bg:#f7faf8; --card:#ffffff;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:var(--sans);color:var(--ink);background:var(--bg);line-height:1.6;font-size:16px}
+  a{color:var(--green);text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--line)}
+  .nav-inner{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  .brand{font-weight:700;color:var(--green-dark);font-size:1.05rem;display:flex;align-items:center;gap:8px}
+  .brand .dot{width:12px;height:12px;border-radius:50%;background:var(--leaf);display:inline-block}
+  nav.links{display:flex;gap:16px;flex-wrap:wrap;font-size:.92rem}
+  nav.links a{color:var(--muted)}
+  nav.links a:hover{color:var(--green-dark);text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  section{padding:48px 0;border-bottom:1px solid var(--line)}
+  section h2{font-size:1.6rem;color:var(--green-dark);margin:0 0 6px}
+  .sub{color:var(--muted);margin:0 0 24px;max-width:70ch}
+  .eyebrow{color:var(--leaf);font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:.78rem;margin-bottom:8px}
+  /* hero */
+  .hero{background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%);color:#fff;border-bottom:none}
+  .hero .eyebrow{color:#cfeede}
+  .hero h1{font-size:2.4rem;line-height:1.15;margin:6px 0 14px}
+  .hero p.lead{font-size:1.12rem;max-width:62ch;color:#eafaf1}
+  .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+  .chip{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);padding:6px 14px;border-radius:999px;font-size:.85rem}
+  .grid{display:grid;gap:18px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:820px){.g3,.g2{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .card h3{margin:0 0 6px;font-size:1.05rem;color:var(--green-dark)}
+  .card p{margin:0;color:var(--muted);font-size:.94rem}
+  .num{font-size:1.6rem;font-weight:700;color:var(--leaf)}
+  /* pipeline */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+  .step{flex:1;min-width:200px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .arrow{align-self:center;color:var(--leaf);font-size:1.8rem;padding:0 10px}
+  .step .tag{font-size:.72rem;font-weight:700;letter-spacing:.05em;color:#fff;background:var(--leaf);padding:2px 8px;border-radius:6px}
+  .step h4{margin:10px 0 6px;color:var(--green-dark)}
+  .step p{margin:0;font-size:.9rem;color:var(--muted)}
+  code,pre{font-family:var(--mono)}
+  pre{background:#0f1b16;color:#d7f0e2;padding:16px 18px;border-radius:10px;overflow:auto;font-size:.86rem;line-height:1.55}
+  pre .cm{color:#7fae97}
+  .run-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:820px){.run-grid{grid-template-columns:1fr}}
+  /* buckets / table */
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:.9rem}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--green-light);color:var(--green-dark)}
+  .badge{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:6px;color:#fff}
+  .b-ok{background:#1f7a4d}.b-cl{background:#b8791b}.b-uns{background:#8a8f8b}.b-ref{background:#b23b3b}
+  /* media */
+  .video-box{position:relative;padding-top:56.25%;background:#000;border-radius:12px;overflow:hidden}
+  .video-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  /* callout */
+  .callout{background:var(--green-light);border-left:4px solid var(--leaf);border-radius:8px;padding:14px 18px;color:var(--ink);font-size:.95rem}
+  .placeholder{color:var(--amber);font-weight:600;background:#fff6e6;padding:0 4px;border-radius:4px}
+  .list{padding-left:20px}
+  .list li{margin:6px 0}
+  footer{padding:34px 0;color:var(--muted);font-size:.9rem}
+  .btns{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px}
+  .btn{background:var(--green);color:#fff;padding:11px 20px;border-radius:9px;font-weight:600;font-size:.95rem}
+  .btn:hover{background:var(--green-dark);text-decoration:none}
+  .btn.ghost{background:#fff;color:var(--green-dark);border:1px solid var(--green)}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <div class="brand"><span class="dot"></span>Recycling Rules Helper</div>
+    <nav class="links">
+      <a href="#problem">Problem</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#custom">Customisation</a>
+      <a href="#run">Run</a>
+      <a href="#results">Results</a>
+      <a href="#videos">Videos</a>
+      <a href="#team">Team</a>
+      <a href="#repo">Repository</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <div class="wrap">
+    <div class="eyebrow">AILT9019 · Final Project · Group 47</div>
+    <h1>Recycling Rules Helper</h1>
+    <p class="lead">A grounded campus recycling assistant that answers HKU recycling questions <strong>only</strong> from official waste-reduction sources, refuses unsafe or misleading instructions, and asks for clarification when a question is too vague — never inventing facts.</p>
+    <div class="chips">
+      <span class="chip">Rule-based classifier</span>
+      <span class="chip">LLM polish (DeepSeek-V4.1-Flash-1017)</span>
+      <span class="chip">15/15 evaluation pass</span>
+      <span class="chip">Domain customised to HKU waste policy</span>
+    </div>
+  </div>
+</section>
+
+<section id="problem">
+  <div class="wrap">
+    <div class="eyebrow">A1 · Sections 1–2</div>
+    <h2>Who it is for & the problem</h2>
+    <p class="sub">Campus members (students, staff, visitors) often do not know whether a specific item is recyclable at HKU, or must be cleaned first. Generic chatbots confidently guess and invent rules, which spreads mis-sorting. Our tool answers strictly from the four official HKU Waste Reduction sources.</p>
+    <div class="grid g3">
+      <div class="card"><div class="num">4</div><h3>Official sources</h3><p>Recycling 101, Photo Guide, re Facilities, Ditch Disposables — the only evidence the model may cite.</p></div>
+      <div class="card"><div class="num">5</div><h3>Response buckets</h3><p>Supported · Needs-clarification · Unsupported · Refusal · each routed deterministically.</p></div>
+      <div class="card"><div class="num">15</div><h3>Evaluation cases</h3><p>Normal, boundary (vague "a cup"), unsupported (laptop/e-waste) and refusal cases.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="pipeline">
+  <div class="wrap">
+    <div class="eyebrow">A1 · Pipeline</div>
+    <h2>How it works: input → processing → output</h2>
+    <p class="sub">A deterministic rule layer decides <em>what</em> is true and which sources apply; the LLM is used only to polish wording within those sources, and silently falls back to the local official draft on any failure.</p>
+    <div class="flow">
+      <div class="step"><span class="tag">INPUT</span><h4>Question</h4><p>"Can I recycle a greasy pizza box?"</p></div>
+      <div class="arrow">→</div>
+      <div class="step"><span class="tag">PROCESS</span><h4>Rule classifier</h4><p><code>classify()</code> sets the bucket + source ids (S1–S4) by keywords — deterministic and reproducible.</p></div>
+      <div class="arrow">→</div>
+      <div class="step"><span class="tag">PROCESS</span><h4>LLM polish</h4><p>DeepSeek-V4.1-Flash-1017 rephrases the grounded local draft; may cite only the selected sources.</p></div>
+      <div class="arrow">→</div>
+      <div class="step"><span class="tag">OUTPUT</span><h4>Answer + citations</h4><p>Faithful answer with the exact sources block appended.</p></div>
+    </div>
+    <div class="callout" style="margin-top:20px"><strong>Team-built vs existing:</strong> The retrieval grounding, rule classifier, buckets, evaluation harness and refusal/clarification logic are all built by the team. Existing capabilities used: the <code>openai</code> SDK client pointed at the DeepSeek OpenAI-compatible endpoint, and DeepSeek-V4.1-Flash-1017 as the base LLM. The code is model-agnostic: the endpoint and model name are read from environment variables, so any OpenAI-compatible service can be swapped in.</div>
+  </div>
+</section>
+
+<section id="custom">
+  <div class="wrap">
+    <div class="eyebrow">A1 · Domain customisation</div>
+    <h2>Genuine domain customisation</h2>
+    <p class="sub">This is not a generic LLM wrapper. The behaviour is specialised to HKU's recycling domain and is supported by implementation and results:</p>
+    <ul class="list">
+      <li><strong>Grounded to official policy:</strong> the model may only use the four HKU Waste Reduction sources; if a question falls outside them it answers "insufficient information" instead of guessing.</li>
+      <li><strong>Boundary handling:</strong> vague items ("a cup") trigger a clarification request rather than a confident wrong answer (T12).</li>
+      <li><strong>Refusal of misleading premises:</strong> "Are all batteries general waste?" is refused and corrected using S1/S3 — rechargeable batteries must go to designated stations (T15).</li>
+      <li><strong>Out-of-scope guard:</strong> e-waste / laptop disposal is flagged unsupported and redirected to official channels (T14).</li>
+      <li><strong>A design choice validated by results:</strong> deterministic rules fix the facts and citations so that evaluation is stable 15/15 <em>regardless</em> of LLM variability — the LLM never changes correctness, only phrasing.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="run">
+  <div class="wrap">
+    <div class="eyebrow">C1 · Run instructions</div>
+    <h2>Set up and run</h2>
+    <p class="sub">The full source is in the team's staff-accessible GitHub repository (link below). No secrets are committed — the key is read from a local <code>.env</code>.</p>
+    <div class="run-grid">
+      <pre>git clone <span class="cm"># see repository link below</span>
+cd Ailt-9019-Group47
+pip install -r requirements.txt   <span class="cm"># openai, python-dotenv</span>
+
+cp .env.example .env              <span class="cm"># fill in your DeepSeek API key</span></pre>
+      <pre>python app.py "Can I recycle glass bottles?"
+python app.py --eval              <span class="cm"># 15/15 offline, no key needed</span>
+python app.py --eval --llm        <span class="cm"># with DeepSeek-V4.1-Flash-1017 polish</span></pre>
+    </div>
+    <p class="sub" style="margin-top:14px">Environment variables (read from <code>.env</code>):</p>
+    <pre>OPENAI_API_KEY=sk-sp-<your key from the team email>
+OPENAI_BASE_URL=https://api.deepseek.com/v1
+OPENAI_MODEL=DeepSeek-V4.1-Flash-1017</pre>
+
+    <h3 style="color:var(--green-dark);margin:28px 0 8px">Genuine run example</h3>
+    <pre>$ python app.py "Are all batteries general waste?"
+
+--- Classification: refusal | Sources: ['S1', 'S3'] ---
+Answer: I cannot confirm that all batteries should be disposed of in
+general waste. According to our sources, rechargeable batteries must be
+collected at designated battery recycling stations. Please check
+S1 (Recycling 101) or S3 (re Facilities) for details.
+Sources Cited:
+S1 - Recycling 101
+S3 - re Facilities</pre>
+  </div>
+</section>
+
+<section id="results">
+  <div class="wrap">
+    <div class="eyebrow">A2 · Evaluation, failure case & limitations</div>
+    <h2>Results, failure / boundary case & limitations</h2>
+    <div class="callout" style="margin-bottom:20px"><strong>Evidence:</strong> <code>python app.py --eval</code> passes <strong>15/15</strong> cases. With <code>--llm</code> the wording is polished by DeepSeek-V4.1-Flash-1017 but the cited sources and facts stay identical; any LLM error falls back silently to the local official draft, so correctness is preserved.</div>
+    <table>
+      <thead><tr><th>Case</th><th>Type</th><th>Question</th><th>System behaviour</th></tr></thead>
+      <tbody>
+        <tr><td>T04</td><td><span class="badge b-ok">Supported</span></td><td>What can I recycle at HKU?</td><td>Lists clean paper/cardboard/glass/plastic/metal; rechargeable batteries → designated stations (S1).</td></tr>
+        <tr><td>T12</td><td><span class="badge b-cl">Clarify</span></td><td>Can I recycle a cup?</td><td><strong>Boundary:</strong> too vague — asks for material & cleaning status instead of guessing.</td></tr>
+        <tr><td>T14</td><td><span class="badge b-uns">Unsupported</span></td><td>How do I recycle my old laptop?</td><td>Out of scope — states insufficient info and points to official e-waste channels.</td></tr>
+        <tr><td>T15</td><td><span class="badge b-ref">Refusal</span></td><td>Are all batteries general waste?</td><td><strong>Failure/misleading case:</strong> refuses the false premise, corrects with S1/S3.</td></tr>
+      </tbody>
+    </table>
+    <h3 style="color:var(--green-dark);margin:26px 0 8px">Limitations & evidence-based improvements</h3>
+    <ul class="list">
+      <li><strong>Retrieval is keyword-based, not semantic.</strong> Unusual phrasing can fall to the default bucket. <em>Improvement:</em> add embedding-based retrieval over the sources.</li>
+      <li><strong>Source freshness.</strong> Rules mirror sources captured on 2026-11-19; policy changes need re-ingest. <em>Improvement:</em> scheduled re-scrape with change detection.</li>
+      <li><strong>Single-turn.</strong> Clarification requires the user to re-ask. <em>Improvement:</em> session context to continue after a needs-clarification turn.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="videos">
+  <div class="wrap">
+    <div class="eyebrow">C2 · Presentation & demonstration</div>
+    <h2>Watch the project</h2>
+    <div class="grid g2">
+      <div>
+        <h3 style="color:var(--green-dark);margin:0 0 10px">Presentation (≤3 min)</h3>
+        <div class="video-box">
+          <iframe src="https://www.youtube.com/embed/odDgo-_iQ4I" title="Project presentation" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <p class="sub" style="margin-top:8px">Problem, approach and teamwork — every member speaks.</p>
+      </div>
+      <div>
+        <h3 style="color:var(--green-dark);margin:0 0 10px">Demo (full run)</h3>
+        <div class="video-box">
+          <iframe src="https://www.youtube.com/embed/syJ1KsGAfKg" title="Product demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <p class="sub" style="margin-top:8px">Continuous input → processing → output, evaluation evidence, and a real refusal / boundary case.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="team">
+  <div class="wrap">
+    <div class="eyebrow">A4 · Individual contributions</div>
+    <h2>Team & contributions</h2>
+    <p class="sub">Each member owned a distinct part of the build and all collaborated on the final report; the table below summarises the main areas of responsibility (member names intentionally omitted).</p>
+    <table>
+      <thead><tr><th>Role</th><th>Main contributions</th></tr></thead>
+      <tbody>
+        <tr><td>Classifier &amp; evaluation</td><td>Rule classifier & evaluation cases (T1–T15) in <code>app.py</code>.</td></tr>
+        <tr><td>Source curation</td><td>Official sources (S1–S4) gathering & verification.</td></tr>
+        <tr><td>Integration &amp; deployment</td><td>LLM integration (DeepSeek-V4.1-Flash-1017) & this project webpage / deployment.</td></tr>
+        <tr><td>Media &amp; reporting</td><td>Demo & presentation videos, report, AI-use disclosure.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="repo">
+  <div class="wrap">
+    <div class="eyebrow">C1 · Repository & disclosures</div>
+    <h2>Repository, ethics & AI-use</h2>
+    <div class="btns">
+      <a class="btn" href="https://github.com/WangYouzi-yugo/Ailt-9019-Group47" target="_blank" rel="noopener">Open the GitHub repository ↗</a>
+    </div>
+    <div class="grid g2" style="margin-top:22px">
+      <div class="card">
+        <h3>Ethics & privacy</h3>
+        <p>All answers are derived from public HKU Waste Reduction pages. No personal data is collected or processed. The team API key lives only in a local <code>.env</code>, never in code or in this public page; the API is used for course work only, without excessive concurrency.</p>
+      </div>
+      <div class="card">
+        <h3>AI-use disclosure</h3>
+        <p>An LLM (DeepSeek <code>DeepSeek-V4.1-Flash-1017</code>, called through its OpenAI-compatible API) polishes wording only, strictly within the selected official sources. All factual claims and citations are human-verified against the source pages; the deterministic rule layer guarantees grounded behaviour.</p>
+      </div>
+    </div>
+    <h3 style="color:var(--green-dark);margin:24px 0 8px">References</h3>
+    <ul class="list">
+      <li>S1 — Recycling 101, HKU Waste Reduction. <a href="https://wastereduction.hku.hk/recycling" target="_blank" rel="noopener">wastereduction.hku.hk/recycling</a></li>
+      <li>S2 — Recycling Photo Guide, HKU Waste Reduction. <a href="https://wastereduction.hku.hk/recycling/photo-guide" target="_blank" rel="noopener">wastereduction.hku.hk/recycling/photo-guide</a></li>
+      <li>S3 — re Facilities, HKU Waste Reduction. <a href="https://wastereduction.hku.hk/re" target="_blank" rel="noopener">wastereduction.hku.hk/re</a></li>
+      <li>S4 — Ditch Disposables 101, HKU Waste Reduction. <a href="https://wastereduction.hku.hk/ditch-disposables" target="_blank" rel="noopener">wastereduction.hku.hk/ditch-disposables</a></li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Recycling Rules Helper — AILT9019 Final Project, Group 47 · Submitted 20 November 2026 (UTC+8).
+  </div>
+</footer>
+
+</body>
+</html>
